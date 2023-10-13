@@ -21,7 +21,7 @@ import tts
 
 # 설정 파라이터
 is_debug = True  # 디버그 모드 여부
-video_id = "aSR-E4BmHcM"  # 스트리밍하는 동영상 ID로 수정
+video_id = "Iq9xLMdqFsc"  # 스트리밍하는 동영상 ID로 수정
 client_secrets_file_name = "youtube-api-credential.json"  # 유튜브 API 키 인증 정보를 담은 파일명으로 수정
 scopes = ["https://www.googleapis.com/auth/youtube.force-ssl"]  # 권한(수정할 필요 없음)
 MAX_QUEUE_SIZE = 3  # 채팅 큐 사이즈
@@ -188,8 +188,29 @@ def thread_tts():
 def thread_send_chat():
     # voice_queue 큐에서 음성을 가져와서 출력하고 로그에 남김
     # 동시에 한글, 영어로 번역된 텍스트를 화면에 출력하고 로그에 남김
-    pass
+    from flask import Flask
+    app = Flask(__name__)
+    def shutdown_server():
+        func = request.environ.get('werkzeug.server.shutdown')
+        if func is None:
+            raise RuntimeError('Not running with the Werkzeug Server')
+        func()
+    
+    @app.route('/get-data')
+    def get_data():
+        if is_end and len(voice_queue) == 0:
+            return ''
+        
+        if len(voice_queue) == 0:
+            return ''
+        element = voice_queue.pop(0)
+        # tts_output/wav_1697215286/3.wav
+        # change to absolute path
+        element['voice'] = os.path.abspath('.').replace('\\','/') +'/' + element['voice']
+        print(element['voice'])
+        return element
 
+    app.run()
 
 if __name__ == "__main__":
     init_youtube()
@@ -203,18 +224,38 @@ if __name__ == "__main__":
     th_read_chat = Thread(target=thread_read_chat)
     th_answer = Thread(target=thread_answer)
     th_tts = Thread(target=thread_tts)
+    # th_tts2 = Thread(target=thread_tts)
+
     th_send_chat = Thread(target=thread_send_chat)
 
     th_read_chat.start()
     th_answer.start()
     th_tts.start()
+    # th_tts2.start()
+    th_send_chat.start()
 
     while True:
         input_str = input()
         if input_str == 'q':  # q를 입력하면 종료
+            print('end process triggered')
             is_end = True
+            ending_voice = {
+  "answer_en": "I'll end the broadcast. Thank you for watching the show!!",
+  "answer_ja": "時間が遅くなりましたので、そろそろ放送を終了したいと思います。 放送を視聴してくださってありがとうございます!!",
+  "answer_ko": "시간이 늦었으니 슬슬 방종하도록 하겠습니다. 방송 시청해주셔서 감사합니다!!",
+  "author": "Admin",
+  "author_id": "Admin",
+  "en_chat": "end",
+  "raw_chat": "end",
+  "voice": "F:/python/bluearchive-ai/Yuuka_AI_Brain/ending_voice.wav"
+}
+            voice_queue.append({'voice': 'end'})
+
+            while len(chat_queue) > 0:
+                sleep(1)
             break
     
     th_read_chat.join()
     th_answer.join()
     th_tts.join()
+    # th_tts2.join()
