@@ -73,6 +73,14 @@ def thread_read_chat():
 
     polling_interval = 2
 
+    # 시작 전에 친 채팅은 무시
+    request = youtube.liveChatMessages().list(
+            liveChatId=live_chat_id,
+            part="snippet,authorDetails"
+        )
+    response = request.execute()
+    last_chat_index = len(response['items'])-1 
+
     while True:
         if is_end:
             break
