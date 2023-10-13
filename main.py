@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
-
-
 import os
-from time import sleep
 import time
+from time import sleep
+from threading import Thread
 
 import google_auth_oauthlib.flow
 import googleapiclient.discovery
 import googleapiclient.errors
 
-from threading import Thread
+import translation
 
 # 설정 파라이터
 video_id = "aSR-E4BmHcM"  # 스트리밍하는 동영상 ID로 수정
@@ -59,7 +58,7 @@ def thread_read_chat():
     global last_chat_index
 
     polling_interval = 2
-    
+
     while True:
         if is_end:
             break
@@ -87,10 +86,12 @@ def thread_read_chat():
         polling_interval = 2
         for i in range(start_index , len(response['items'])):
             # TODO: 영어로 변환해서 큐에 넣기
+            raw_chat = response['items'][i]['snippet']['displayMessage']
+            eng_chat = translation.translate_text(raw_chat, "en")
             element = {
                 'author': response['items'][i]['authorDetails']['displayName'],
-                'raw_chat': response['items'][i]['snippet']['displayMessage'],
-                'eng_chat': 'tbd...'
+                'raw_chat': raw_chat,
+                'eng_chat': eng_chat
             }
             chat_queue.append(element)
         last_chat_index = len(response['items'])-1
@@ -123,7 +124,7 @@ def thread_answer():
 
 
 def thread_tts():
-    # answer_queue 큐에서 영어를 가져와서 음성으로 변환하고 큐에 넣음
+    # answer_queue 큐에서 영어를 가져와서 일본어로 변역하고 tts를 실행하고 큐에 넣음
     pass
 
 
@@ -149,7 +150,7 @@ if __name__ == "__main__":
 
     while True:
         input_str = input()
-        if input_str == 'q':
+        if input_str == 'q':  # q를 입력하면 종료
             is_end = True
             break
     
