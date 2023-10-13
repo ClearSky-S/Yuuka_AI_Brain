@@ -20,15 +20,18 @@ headers = {"Content-Type": "application/json", "authorization": f"Basic {KEY}"}
 def conversation(chat, username, uid):
     global headers
     global is_first
-    myobj = {"character":f"workspaces/{WORKSPACE_ID}/characters/{CHARACTER_NAME}", "text":chat, "endUserFullname":username, "endUserId":uid}
-    x = requests.post(url, json = myobj, headers=headers)
-    j = json.loads(x.text)
-    if is_first:
-        is_first = False
-        headers = {"Content-Type": "application/json", "authorization": f"Basic {KEY}", "sessionId": j['sessionId']}
-    # print(''.join(j['textList']))
-    # print('')
-    return ''.join(j['textList'])
+    try:
+        myobj = {"character":f"workspaces/{WORKSPACE_ID}/characters/{CHARACTER_NAME}", "text":chat, "endUserFullname":username, "endUserId":uid}
+        x = requests.post(url, json = myobj, headers=headers)
+        j = json.loads(x.text)
+        if is_first:
+            is_first = False
+            headers = {"Content-Type": "application/json", "authorization": f"Basic {KEY}", "sessionId": j['sessionId']}
+        # print(''.join(j['textList']))
+        # print('')
+        return ''.join(j['textList'])
+    except:
+        return "conversation AI error"
 
 if __name__ == "__main__":
     conversation("hello", "Teacher", "1234")

@@ -3,20 +3,28 @@ import os
 import time
 from time import sleep
 from threading import Thread  # 비싼 연산은 모두 클라우드 컴퓨팅으로 진행되기 때문에 멀티프로세싱으로 구현할 필요 없음
+from dotenv import load_dotenv
+load_dotenv()
 
 import google_auth_oauthlib.flow
 import googleapiclient.discovery
 import googleapiclient.errors
 
-import translation
+import deepl
+
+# import translation
 import conversation
+import tts
+
+
+
 
 # 설정 파라이터
 is_debug = True  # 디버그 모드 여부
 video_id = "aSR-E4BmHcM"  # 스트리밍하는 동영상 ID로 수정
 client_secrets_file_name = "youtube-api-credential.json"  # 유튜브 API 키 인증 정보를 담은 파일명으로 수정
 scopes = ["https://www.googleapis.com/auth/youtube.force-ssl"]  # 권한(수정할 필요 없음)
-MAX_QUEUE_SIZE = 5  # 채팅 큐 사이즈
+MAX_QUEUE_SIZE = 3  # 채팅 큐 사이즈
 
 
 # 전역 변수
@@ -28,6 +36,8 @@ last_chat_check_time = time.time()-100
 last_chat_index = -1
 answer_queue = list()
 voice_queue = list()
+translator = deepl.Translator(os.environ.get('deepl_auth_key'))
+
 
 def init_youtube():
     # Made based on sample Python code for youtube.liveBroadcasts.list
@@ -59,6 +69,7 @@ def thread_read_chat():
     global chat_queue
     global last_chat_check_time
     global last_chat_index
+    global translator
 
     polling_interval = 2
 
@@ -91,7 +102,8 @@ def thread_read_chat():
         for i in range(start_index , len(response['items'])):
             # TODO: 영어로 변환해서 큐에 넣기
             raw_chat = response['items'][i]['snippet']['displayMessage']
-            en_chat = translation.translate_text(raw_chat, "en")
+            # en_chat = translation.translate_text(raw_chat, "en")
+            en_chat = translator.translate_text(raw_chat, target_lang="EN-US").text
             element = {
                 'author': response['items'][i]['authorDetails']['displayName'],
                 'author_id': response['items'][i]['authorDetails']['channelId'],
@@ -111,6 +123,8 @@ def thread_answer():
     global last_chat_check_time
     global last_chat_index
     global answer_queue
+    global translator
+
 
     while True:
         if is_end and len(chat_queue) == 0:
@@ -126,8 +140,10 @@ def thread_answer():
         element = chat_queue.pop(0)
         answer = conversation.conversation(element['en_chat'], element['author'], element['author_id'])
         element['answer_en'] = answer
-        element['answer_ja'] = translation.translate_text(answer, "ja")
-        element['answer_ko'] = translation.translate_text(answer, "ko")
+        # element['answer_ja'] = translation.translate_text(answer, "ja")
+        # element['answer_ko'] = translation.translate_text(answer, "ko")
+        element['answer_ja'] = translator.translate_text(answer, target_lang="JA").text
+        element['answer_ko'] = translator.translate_text(answer, target_lang="KO").text
         answer_queue.append(element)
 
         
@@ -136,6 +152,8 @@ def thread_tts():
     global is_end
     global answer_queue
     global voice_queue
+    global translator
+
 
     while True:
         if is_end and len(answer_queue) == 0:
@@ -143,9 +161,20 @@ def thread_tts():
         if len(answer_queue) == 0:
             sleep(1)
             continue
+        if len(voice_queue) > MAX_QUEUE_SIZE:
+            sleep(3)
+            continue
         if is_debug:
             print('Debug: generating voice')
         element = answer_queue.pop(0)
+        start = time.time()
+        voice = tts.tts(element['answer_ja'])
+        if is_debug:
+            print(f'Debug: voice generation time: {time.time()-start}')
+        element['voice'] = voice
+        voice_queue.append(element)
+        print(element)
+
 
 
 def thread_send_chat():
@@ -165,9 +194,12 @@ if __name__ == "__main__":
     print('liveChatId: ' + live_chat_id)
     th_read_chat = Thread(target=thread_read_chat)
     th_answer = Thread(target=thread_answer)
+    th_tts = Thread(target=thread_tts)
+    th_send_chat = Thread(target=thread_send_chat)
 
     th_read_chat.start()
     th_answer.start()
+    th_tts.start()
 
     while True:
         input_str = input()
@@ -177,3 +209,4 @@ if __name__ == "__main__":
     
     th_read_chat.join()
     th_answer.join()
+    th_tts.join()

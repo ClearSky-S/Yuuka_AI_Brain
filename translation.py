@@ -1,4 +1,5 @@
-# 네이버 Papago 언어감지 API 예제
+# 네이버 Papago 언어감지 API
+# 그런데 파파고는 기본 제공량이 적어 사용하지 않기로 함.
 import json
 import os
 import sys
