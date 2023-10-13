@@ -2,19 +2,22 @@
 import os
 import time
 from time import sleep
-from threading import Thread
+from threading import Thread  # 비싼 연산은 모두 클라우드 컴퓨팅으로 진행되기 때문에 멀티프로세싱으로 구현할 필요 없음
 
 import google_auth_oauthlib.flow
 import googleapiclient.discovery
 import googleapiclient.errors
 
 import translation
+import conversation
 
 # 설정 파라이터
+is_debug = True  # 디버그 모드 여부
 video_id = "aSR-E4BmHcM"  # 스트리밍하는 동영상 ID로 수정
 client_secrets_file_name = "youtube-api-credential.json"  # 유튜브 API 키 인증 정보를 담은 파일명으로 수정
 scopes = ["https://www.googleapis.com/auth/youtube.force-ssl"]  # 권한(수정할 필요 없음)
 MAX_QUEUE_SIZE = 5  # 채팅 큐 사이즈
+
 
 # 전역 변수
 is_end = False
@@ -74,7 +77,8 @@ def thread_read_chat():
             liveChatId=live_chat_id,
             part="snippet,authorDetails"
         )
-        print('Debug: calling youtube chat list api')
+        if is_debug:
+            print('Debug: calling youtube chat list api')
         response = request.execute()
         start_index = max( len(response['items'])-MAX_QUEUE_SIZE, last_chat_index+1)
         # 새로운 채팅이 없으면 채팅 polling 간격을 증가시킴
@@ -87,17 +91,18 @@ def thread_read_chat():
         for i in range(start_index , len(response['items'])):
             # TODO: 영어로 변환해서 큐에 넣기
             raw_chat = response['items'][i]['snippet']['displayMessage']
-            eng_chat = translation.translate_text(raw_chat, "en")
+            en_chat = translation.translate_text(raw_chat, "en")
             element = {
                 'author': response['items'][i]['authorDetails']['displayName'],
+                'author_id': response['items'][i]['authorDetails']['channelId'],
                 'raw_chat': raw_chat,
-                'eng_chat': eng_chat
+                'en_chat': en_chat
             }
             chat_queue.append(element)
         last_chat_index = len(response['items'])-1
 
 def thread_answer():
-    # chat_queue 큐에서 가져온 영어 질문에 대한 대답을 영어로 생성하고 텍스트를 전처리하고 나서 일본어로 변환한 후 큐에 넣음
+    # chat_queue 큐에서 가져온 영어 질문에 대한 대답을 영어로 생성하고 다국어로 변환한 후 큐에 넣음
     global is_end
     global youtube
     global live_chat_id
@@ -116,16 +121,31 @@ def thread_answer():
         if len(answer_queue) > MAX_QUEUE_SIZE:
             sleep(3)
             continue
-        print('Debug: generating answer')
+        if is_debug:
+            print('Debug: generating answer')
         element = chat_queue.pop(0)
-        print(element)
+        answer = conversation.conversation(element['en_chat'], element['author'], element['author_id'])
+        element['answer_en'] = answer
+        element['answer_ja'] = translation.translate_text(answer, "ja")
+        element['answer_ko'] = translation.translate_text(answer, "ko")
+        answer_queue.append(element)
 
-
-
-
+        
 def thread_tts():
-    # answer_queue 큐에서 영어를 가져와서 일본어로 변역하고 tts를 실행하고 큐에 넣음
-    pass
+    # answer_queue 큐에서 일본어를 가져와서 tts를 실행하고 큐에 넣음
+    global is_end
+    global answer_queue
+    global voice_queue
+
+    while True:
+        if is_end and len(answer_queue) == 0:
+            break
+        if len(answer_queue) == 0:
+            sleep(1)
+            continue
+        if is_debug:
+            print('Debug: generating voice')
+        element = answer_queue.pop(0)
 
 
 def thread_send_chat():
@@ -142,6 +162,7 @@ if __name__ == "__main__":
     )
     response = request.execute()
     live_chat_id = response['items'][0]['snippet']['liveChatId']
+    print('liveChatId: ' + live_chat_id)
     th_read_chat = Thread(target=thread_read_chat)
     th_answer = Thread(target=thread_answer)
 
