@@ -249,7 +249,7 @@ if __name__ == "__main__":
   "raw_chat": "end",
   "voice": "F:/python/bluearchive-ai/Yuuka_AI_Brain/ending_voice.wav"
 }
-            voice_queue.append({'voice': 'end'})
+            voice_queue.append(ending_voice)
 
             while len(chat_queue) > 0:
                 sleep(1)
