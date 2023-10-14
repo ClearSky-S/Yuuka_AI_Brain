@@ -2,6 +2,7 @@ youtube-api-credential.json
 test/
 tts_output/
 *.mp4
+log/
 
 # Created by https://www.toptal.com/developers/gitignore/api/python
 # Edit at https://www.toptal.com/developers/gitignore?templates=python

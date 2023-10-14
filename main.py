@@ -181,7 +181,8 @@ def thread_tts():
             print(f'Debug: voice generation time: {time.time()-start}')
         element['voice'] = voice
         voice_queue.append(element)
-        print(element)
+        if is_debug:
+            print(element)
 
 
 
@@ -189,6 +190,9 @@ def thread_send_chat():
     # voice_queue 큐에서 음성을 가져와서 출력하고 로그에 남김
     # 동시에 한글, 영어로 번역된 텍스트를 화면에 출력하고 로그에 남김
     from flask import Flask
+    start = round(time.time())
+    if not os.path.exists("log"):
+        os.mkdir("log")
     app = Flask(__name__)
     def shutdown_server():
         func = request.environ.get('werkzeug.server.shutdown')
@@ -207,7 +211,12 @@ def thread_send_chat():
         # tts_output/wav_1697215286/3.wav
         # change to absolute path
         element['voice'] = os.path.abspath('.').replace('\\','/') +'/' + element['voice']
-        print(element['voice'])
+        
+        file = open(f"log/{start}.txt", "a", encoding="UTF-8")
+        file.write(element)
+        file.close()
+
+
         return element
 
     app.run()
