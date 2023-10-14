@@ -4,6 +4,7 @@ import time
 from time import sleep
 from threading import Thread  # 비싼 연산은 모두 클라우드 컴퓨팅으로 진행되기 때문에 멀티프로세싱으로 구현할 필요 없음
 from dotenv import load_dotenv
+import json
 load_dotenv()
 
 import google_auth_oauthlib.flow
@@ -21,7 +22,7 @@ import tts
 
 # 설정 파라이터
 is_debug = True  # 디버그 모드 여부
-video_id = "Iq9xLMdqFsc"  # 스트리밍하는 동영상 ID로 수정
+video_id = "6IFJ4KBwCSI"  # 스트리밍하는 동영상 ID로 수정
 client_secrets_file_name = "youtube-api-credential.json"  # 유튜브 API 키 인증 정보를 담은 파일명으로 수정
 scopes = ["https://www.googleapis.com/auth/youtube.force-ssl"]  # 권한(수정할 필요 없음)
 MAX_QUEUE_SIZE = 3  # 채팅 큐 사이즈
@@ -213,7 +214,7 @@ def thread_send_chat():
         element['voice'] = os.path.abspath('.').replace('\\','/') +'/' + element['voice']
         
         file = open(f"log/{start}.txt", "a", encoding="UTF-8")
-        file.write(element)
+        file.write(json.dumps(element))
         file.close()
 
 
@@ -245,9 +246,18 @@ if __name__ == "__main__":
 
     while True:
         input_str = input()
+        if input_str == 'd':
+            print('chat_queue: ')
+            print(chat_queue)
+            print('answer_queue: ')
+            print(answer_queue)
+            print('voice_queue: ')
+            print(voice_queue)
+
         if input_str == 'q':  # q를 입력하면 종료
             print('end process triggered')
-            is_end = True
+            
+            # voice_queue.clear()
             ending_voice = {
   "answer_en": "I'll end the broadcast. Thank you for watching the show!!",
   "answer_ja": "時間が遅くなりましたので、そろそろ放送を終了したいと思います。 放送を視聴してくださってありがとうございます!!",
@@ -259,7 +269,11 @@ if __name__ == "__main__":
   "voice": "F:/python/bluearchive-ai/Yuuka_AI_Brain/ending_voice.wav"
 }
             voice_queue.append(ending_voice)
+            is_end = True
+            chat_queue.clear()
+            answer_queue.clear()
 
+            
             while len(chat_queue) > 0:
                 sleep(1)
             break
